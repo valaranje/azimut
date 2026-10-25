@@ -1,0 +1,13 @@
+openai
+python-dotenv
+sentence-transformers
+numpy
+pymupdf
+pytesseract
+Pillow
+feedparser
+rapidfuzz
+requests
+pytest
+jsonschema
+

@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PersonalizedInsight",
+  "description": "Контракт обмена между этапами пайплайна: [профиль клиента] -> [ретрив новостей/аналитики] -> [ранжирование] -> [LLM-интерпретация] -> [self-check] -> [вывод в Альфа-Бизнес]. Используется как выход агента для одного события по одному клиенту.",
+  "type": "object",
+  "required": ["client_id", "event", "relevance", "interpretation", "sources", "provenance"],
+  "properties": {
+    "client_id": { "type": "string", "description": "SYNTHETIC_U клиента" },
+    "event": {
+      "type": "object",
+      "required": ["event_id", "title", "published_at", "summary_facts"],
+      "properties": {
+        "event_id": { "type": "string" },
+        "title": { "type": "string" },
+        "published_at": { "type": "string", "format": "date" },
+        "source_type": { "type": "string", "enum": ["external_news", "alfa_analytics"] },
+        "topic_tags": { "type": "array", "items": { "type": "string" } },
+        "summary_facts": {
+          "type": "array",
+          "description": "Что произошло -- только проверяемые факты, без интерпретации",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "relevance": {
+      "type": "object",
+      "required": ["score", "matched_client_features"],
+      "properties": {
+        "score": { "type": "number", "minimum": 0, "maximum": 1 },
+        "matched_client_features": {
+          "type": "array",
+          "description": "Какие признаки клиента сработали при отборе (например industry_sector=construction, sensitivities=key_rate)",
+          "items": { "type": "string" }
+        },
+        "ranking_model": { "type": "string", "description": "Какая из разрешённых LLM/правило использовались для скоринга" }
+      }
+    },
+    "interpretation": {
+      "type": "object",
+      "description": "Отвечает на 6 вопросов из ТЗ (слайд 14)",
+      "required": [
+        "what_happened", "why_relevant_to_client", "possible_consequences",
+        "possible_actions", "bank_view", "basis_for_conclusion"
+      ],
+      "properties": {
+        "what_happened": { "type": "string" },
+        "why_relevant_to_client": { "type": "string" },
+        "possible_consequences": {
+          "type": "array",
+          "items": { "type": "object", "properties": {
+            "type": { "type": "string", "enum": ["risk", "opportunity"] },
+            "text": { "type": "string" }
+          }}
+        },
+        "possible_actions": { "type": "array", "items": { "type": "string" } },
+        "bank_view": {
+          "type": "string",
+          "description": "Позиция/прогноз Альфа-Банка из Приложения 2, если применимо"
+        },
+        "basis_for_conclusion": {
+          "type": "array",
+          "description": "Явная привязка вывода к источникам (п.12 критериев успеха -- трассируемость)",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "attribution": {
+      "type": "object",
+      "description": "Что от банка, а что сгенерировано моделью -- обязательное разделение (п.3 критериев успеха)",
+      "properties": {
+        "from_bank_analytics": { "type": "array", "items": { "type": "string" } },
+        "from_client_data": { "type": "array", "items": { "type": "string" } },
+        "from_model_inference": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "source_id": { "type": "string" },
+          "source_type": { "type": "string", "enum": ["external_news", "alfa_analytics", "client_data"] },
+          "title": { "type": "string" },
+          "url_or_doc": { "type": "string" }
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "description": "Трассировка агентных шагов для п.12 критериев успеха",
+      "properties": {
+        "pipeline_run_id": { "type": "string" },
+        "steps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "step": { "type": "string", "enum": ["planning", "retrieval", "ranking", "generation", "self_check"] },
+              "model_used": { "type": "string" },
+              "input_ref": { "type": "string" },
+              "output_ref": { "type": "string" },
+              "notes": { "type": "string" }
+            }
+          }
+        },
+        "self_check": {
+          "type": "object",
+          "properties": {
+            "completeness_ok": { "type": "boolean" },
+            "consistency_ok": { "type": "boolean" },
+            "issues_found": { "type": "array", "items": { "type": "string" } },
+            "action_taken": { "type": "string", "description": "re-retrieve / re-rank / escalate / none" }
+          }
+        }
+      }
+    }
+  }
+}
